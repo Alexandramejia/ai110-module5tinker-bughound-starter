@@ -46,3 +46,26 @@ def test_missing_return_is_penalized():
     )
     assert risk["score"] < 100
     assert any("Return" in r or "return" in r for r in risk["reasons"])
+
+
+def test_rewriting_string_literal_content_increases_risk():
+    # The heuristic fixer text-replaces "print(" wherever it appears, including
+    # inside docstrings/strings that were never real print statements. That
+    # should be flagged as risky rather than treated as a clean, minimal fix.
+    original = (
+        'def f():\n'
+        '    """Tip: print(x) is handy for quick debugging."""\n'
+        '    return 1\n'
+    )
+    fixed = (
+        'def f():\n'
+        '    """Tip: logging.info(x) is handy for quick debugging."""\n'
+        '    return 1\n'
+    )
+    risk = assess_risk(
+        original_code=original,
+        fixed_code=fixed,
+        issues=[{"type": "Code Quality", "severity": "Low", "msg": "print statement"}],
+    )
+    assert risk["level"] in ("medium", "high")
+    assert any("string literal" in r.lower() or "docstring" in r.lower() for r in risk["reasons"])

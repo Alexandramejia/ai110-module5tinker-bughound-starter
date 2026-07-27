@@ -1,4 +1,21 @@
+import ast
 from typing import Dict, List
+
+# Substrings the heuristic fixer text-replaces anywhere they occur, code or not.
+_NAIVE_REPLACE_MARKERS = ("print(", "except:")
+
+
+# Pulls out string/docstring contents so we can tell "code changed" from "string content changed".
+def _string_literals(code: str) -> List[str]:
+    try:
+        tree = ast.parse(code)
+    except SyntaxError:
+        return []
+    return [
+        node.value
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Constant) and isinstance(node.value, str)
+    ]
 
 
 def assess_risk(
@@ -61,6 +78,18 @@ def assess_risk(
         # This is usually good, but still risky.
         score -= 5
         reasons.append("Bare except was modified, verify correctness.")
+
+    # Catches heuristic fixes that text-replace print(/except: inside docstrings or strings.
+    original_strings = _string_literals(original_code)
+    fixed_strings = _string_literals(fixed_code)
+    if any(
+        any(marker in s for marker in _NAIVE_REPLACE_MARKERS) and s not in fixed_strings
+        for s in original_strings
+    ):
+        score -= 30
+        reasons.append(
+            "Fix appears to rewrite text inside a string literal or docstring, not actual code."
+        )
 
     # ----------------------------
     # Clamp score
