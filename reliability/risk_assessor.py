@@ -80,7 +80,8 @@ def assess_risk(
     # ----------------------------
     # Auto-fix policy
     # ----------------------------
-    should_autofix = level == "low"
+    # Tightened: require score > 95, not just "low", so should_autofix is harder to trigger.
+    should_autofix = level == "low" and score > 95
 
     if not reasons:
         reasons.append("No significant risks detected.")
