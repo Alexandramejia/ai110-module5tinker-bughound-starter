@@ -187,16 +187,26 @@ class BugHoundAgent:
 
         return None
 
-    def _normalize_issues(self, arr: List[Any]) -> List[Dict[str, str]]:
+    def _normalize_issues(self, arr: List[Any]) -> Optional[List[Dict[str, str]]]:
         issues: List[Dict[str, str]] = []
+        valid_severities = {"Low", "Medium", "High"}
         for item in arr:
             if not isinstance(item, dict):
                 continue
+
+            severity = str(item.get("severity", "Unknown"))
+            msg = str(item.get("msg", "")).strip()
+
+            # Reliability change: stricter acceptance of AI output (not a fallback-timing change).
+            # Validate Gemini's output before accepting it; return None if the severity or message is invalid.
+            if severity not in valid_severities or not msg:
+                return None
+
             issues.append(
                 {
                     "type": str(item.get("type", "Issue")),
-                    "severity": str(item.get("severity", "Unknown")),
-                    "msg": str(item.get("msg", "")).strip(),
+                    "severity": severity,
+                    "msg": msg,
                 }
             )
         return issues
